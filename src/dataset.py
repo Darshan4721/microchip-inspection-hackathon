@@ -21,7 +21,6 @@ class TrainDataset(Dataset):
                 f"No .npy files found in {self.degraded_dir}"
             )
 
-        # Check matching GT files
         for file in self.files:
 
             gt_file = self.gt_dir / file.name

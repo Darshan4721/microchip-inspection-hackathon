@@ -7,11 +7,6 @@ from dataset import TestDataset
 from model import create_model
 from utils import save_npy
 
-
-# =========================================================
-# PATHS
-# =========================================================
-
 ROOT = Path(__file__).resolve().parent.parent
 
 TEST_PATH = (
@@ -36,10 +31,6 @@ RESULT_PATH.mkdir(
 )
 
 
-# =========================================================
-# DEVICE
-# =========================================================
-
 DEVICE = (
     "cuda"
     if torch.cuda.is_available()
@@ -49,11 +40,6 @@ DEVICE = (
 print(
     f"Device: {DEVICE}"
 )
-
-
-# =========================================================
-# DATASET
-# =========================================================
 
 dataset = TestDataset(
     root=TEST_PATH
@@ -65,12 +51,6 @@ loader = DataLoader(
     shuffle=False,
     num_workers=0
 )
-
-
-# =========================================================
-# MODEL
-# =========================================================
-
 model = create_model()
 
 checkpoint = torch.load(
@@ -88,10 +68,6 @@ model = model.to(
 
 model.eval()
 
-
-# =========================================================
-# INFERENCE
-# =========================================================
 
 with torch.no_grad():
 

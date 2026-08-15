@@ -9,11 +9,6 @@ from dataset import TrainDataset
 from model import create_model
 from utils import calculate_psnr
 
-
-# =========================================================
-# PATHS
-# =========================================================
-
 ROOT = Path(__file__).resolve().parent.parent
 
 TRAIN_PATH = ROOT / "Train" / "train"
@@ -27,11 +22,6 @@ CHECKPOINT_DIR.mkdir(
     exist_ok=True
 )
 
-
-# =========================================================
-# DEVICE
-# =========================================================
-
 DEVICE = (
     "cuda"
     if torch.cuda.is_available()
@@ -39,11 +29,6 @@ DEVICE = (
 )
 
 print(f"Using device: {DEVICE}")
-
-
-# =========================================================
-# CONFIGURATION
-# =========================================================
 
 BATCH_SIZE = 4
 
@@ -56,12 +41,6 @@ NUM_WORKERS = 0
 VALIDATION_SPLIT = 0.1
 
 SEED = 42
-
-
-# =========================================================
-# RANDOM SEED
-# =========================================================
-
 random.seed(SEED)
 
 torch.manual_seed(SEED)
@@ -69,22 +48,12 @@ torch.manual_seed(SEED)
 if torch.cuda.is_available():
     torch.cuda.manual_seed_all(SEED)
 
-
-# =========================================================
-# DATASET
-# =========================================================
-
 print("\nLoading dataset...")
 
 dataset = TrainDataset(
     degraded_dir=DEGRADED_PATH,
     gt_dir=GT_PATH
 )
-
-
-# =========================================================
-# CHECK ONE SAMPLE
-# =========================================================
 
 sample_degraded, sample_gt = dataset[0]
 
@@ -107,11 +76,6 @@ print(
     f"Sample GT dtype: "
     f"{sample_gt.dtype}"
 )
-
-
-# =========================================================
-# TRAIN / VALIDATION SPLIT
-# =========================================================
 
 validation_size = max(
     1,
@@ -142,11 +106,6 @@ print(
     f"{len(val_dataset)}"
 )
 
-
-# =========================================================
-# DATALOADERS
-# =========================================================
-
 train_loader = DataLoader(
     train_dataset,
     batch_size=BATCH_SIZE,
@@ -164,28 +123,13 @@ val_loader = DataLoader(
     pin_memory=(DEVICE == "cuda")
 )
 
-
-# =========================================================
-# MODEL
-# =========================================================
-
 print("\nCreating SWISR model...")
 
 model = create_model()
 
 model = model.to(DEVICE)
 
-
-# =========================================================
-# LOSS
-# =========================================================
-
 criterion = nn.L1Loss()
-
-
-# =========================================================
-# OPTIMIZER
-# =========================================================
 
 optimizer = torch.optim.AdamW(
     model.parameters(),
@@ -193,20 +137,10 @@ optimizer = torch.optim.AdamW(
     weight_decay=1e-4
 )
 
-
-# =========================================================
-# SCHEDULER
-# =========================================================
-
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
     optimizer,
     T_max=EPOCHS
 )
-
-
-# =========================================================
-# MIXED PRECISION
-# =========================================================
 
 use_amp = DEVICE == "cuda"
 
@@ -214,11 +148,6 @@ scaler = torch.amp.GradScaler(
     "cuda",
     enabled=use_amp
 )
-
-
-# =========================================================
-# TRAINING
-# =========================================================
 
 best_psnr = -float("inf")
 
@@ -228,11 +157,6 @@ for epoch in range(EPOCHS):
     model.train()
 
     total_loss = 0.0
-
-
-    # =====================================================
-    # TRAIN
-    # =====================================================
 
     for batch_idx, (
         degraded,
@@ -254,11 +178,6 @@ for epoch in range(EPOCHS):
             set_to_none=True
         )
 
-
-        # -------------------------------------------------
-        # Forward
-        # -------------------------------------------------
-
         with torch.amp.autocast(
             "cuda",
             enabled=use_amp
@@ -267,11 +186,6 @@ for epoch in range(EPOCHS):
             restored = model(
                 degraded
             )
-
-
-            # -------------------------------------------------
-            # IMPORTANT SHAPE CHECK
-            # -------------------------------------------------
 
             if batch_idx == 0:
 
@@ -290,11 +204,6 @@ for epoch in range(EPOCHS):
                     f"{clean.shape}"
                 )
 
-
-            # -------------------------------------------------
-            # Loss
-            # -------------------------------------------------
-
             if restored.shape != clean.shape:
 
                 raise RuntimeError(
@@ -310,11 +219,6 @@ for epoch in range(EPOCHS):
                 restored,
                 clean
             )
-
-
-        # -------------------------------------------------
-        # Backpropagation
-        # -------------------------------------------------
 
         scaler.scale(
             loss
@@ -345,27 +249,11 @@ for epoch in range(EPOCHS):
                 f"{loss.item():.6f}"
             )
 
-
-    # =====================================================
-    # AVERAGE LOSS
-    # =====================================================
-
     average_loss = (
         total_loss /
         max(len(train_loader), 1)
     )
-
-
-    # =====================================================
-    # LEARNING RATE
-    # =====================================================
-
     scheduler.step()
-
-
-    # =====================================================
-    # VALIDATION
-    # =====================================================
 
     model.eval()
 
@@ -414,11 +302,6 @@ for epoch in range(EPOCHS):
         max(len(val_loader), 1)
     )
 
-
-    # =====================================================
-    # PRINT EPOCH RESULTS
-    # =====================================================
-
     print("\n" + "=" * 60)
 
     print(
@@ -443,11 +326,6 @@ for epoch in range(EPOCHS):
 
     print("=" * 60)
 
-
-    # =====================================================
-    # SAVE LATEST
-    # =====================================================
-
     latest_path = (
         CHECKPOINT_DIR /
         "latest.pth"
@@ -471,12 +349,6 @@ for epoch in range(EPOCHS):
         },
         latest_path
     )
-
-
-    # =====================================================
-    # SAVE BEST
-    # =====================================================
-
     if average_psnr > best_psnr:
 
         best_psnr = average_psnr
@@ -512,11 +384,6 @@ for epoch in range(EPOCHS):
             f"New best model saved: "
             f"{best_psnr:.4f} dB"
         )
-
-
-# =========================================================
-# FINISHED
-# =========================================================
 
 print(
     "\nTraining completed."
