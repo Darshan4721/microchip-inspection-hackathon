@@ -55,3 +55,31 @@ class TrainDataset(Dataset):
             ground_truth = ground_truth.unsqueeze(0)
 
         return degraded, ground_truth
+
+
+
+from pathlib import Path
+import numpy as np
+import torch
+from torch.utils.data import Dataset
+
+class TestDataset(Dataset):
+    def __init__(self, root):
+        self.root = Path(root)
+        self.files = sorted(self.root.glob("*.npy"))
+
+        if len(self.files) == 0:
+            raise RuntimeError(f"No .npy files found in {self.root}")
+
+    def __len__(self):
+        return len(self.files)
+
+    def __getitem__(self, index):
+        path = self.files[index]
+        image = np.load(path)
+        image = torch.from_numpy(image).float()
+
+        if image.ndim == 2:
+            image = image.unsqueeze(0)
+
+        return image, path.name

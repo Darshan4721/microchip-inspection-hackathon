@@ -12,12 +12,15 @@ dependencies = [
     "opencv-python>=5.0.0.93",
     "pillow>=12.3.0",
     "timm>=1.0.28",
-    "torch>=2.13.0",
-    "torchvision>=0.28.0",
+    "torch>=2.11.0",
+    "torchvision>=0.26.0",
 ]
 
 [project.scripts]
 semicon-hackathon = "semicon_hackathon:main"
+
+[[tool.uv.index]]
+url = "https://download.pytorch.org/whl/cu128"
 
 [build-system]
 requires = ["uv_build>=0.12.1,<0.13.0"]
