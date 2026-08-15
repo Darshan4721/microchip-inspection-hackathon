@@ -1,0 +1,24 @@
+[project]
+name = "semicon-hackathon"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "RitikM-AiDev", email = "ritik.aidev@gmail.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=2.4.6",
+    "opencv-python>=5.0.0.93",
+    "pillow>=12.3.0",
+    "timm>=1.0.28",
+    "torch>=2.13.0",
+    "torchvision>=0.28.0",
+]
+
+[project.scripts]
+semicon-hackathon = "semicon_hackathon:main"
+
+[build-system]
+requires = ["uv_build>=0.12.1,<0.13.0"]
+build-backend = "uv_build"
