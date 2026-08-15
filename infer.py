@@ -114,7 +114,7 @@ def main():
     parser.add_argument(
         "--checkpoint", "--weights",
         type=str,
-        default="checkpoints/best.pth",
+        default="model_files/best.pth",
         dest="checkpoint",
         help="Path to trained model checkpoint (.pth)"
     )
@@ -131,7 +131,11 @@ def main():
     # --------------------------------------------------
     model = create_model().to(device)
 
-    checkpoint = torch.load(args.checkpoint, map_location=device)
+    ckpt_path = Path(args.checkpoint)
+    if not ckpt_path.exists() and Path("checkpoints/best.pth").exists():
+        ckpt_path = Path("checkpoints/best.pth")
+
+    checkpoint = torch.load(ckpt_path, map_location=device)
 
     if isinstance(checkpoint, dict) and "model" in checkpoint:
         model.load_state_dict(checkpoint["model"])

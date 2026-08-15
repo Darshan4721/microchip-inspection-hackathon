@@ -17,7 +17,7 @@ semicon_hackathon/
 ├── infer.py                   # Standalone evaluation script (--input_dir / --output_dir)
 ├── model_running_script.py    # Helper single-file execution script
 ├── requirements.txt           # Complete pip dependencies for reproducibility
-├── checkpoints/
+├── model_files/
 │   ├── best.pth               # Final trained model checkpoint (28.68 dB PSNR)
 │   └── latest.pth             # Epoch 20 latest state dict
 ├── src/
@@ -67,7 +67,7 @@ The standalone evaluation script `infer.py` runs inference on a test directory o
 Run inference on all input images in a specified input directory and write restored outputs ($256 \times 256$) to the target output directory:
 
 ```bash
-python infer.py --input_dir Test/Test_NoisyLR --output_dir test_results --checkpoint checkpoints/best.pth
+python infer.py --input_dir Test/Test_NoisyLR --output_dir test_results --checkpoint model_files/best.pth
 ```
 
 - `--input_dir`: Path to folder containing degraded input test files (`.npy`, `.png`, `.jpg`).
