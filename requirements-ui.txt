@@ -1,0 +1,15 @@
+# UI requirements
+# Note: CPU-only PyTorch is sufficient for running the demo UI inference
+streamlit
+numpy
+pillow
+scikit-image
+opencv-python
+timm
+einops
+huggingface_hub
+safetensors
+PyYAML
+torch
+torchvision
+tqdm
