@@ -1,8 +1,15 @@
-
 # Virtual environments
-.venv
+.venv/
+env/
+ENV/
 
-Test
-Train
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
 
-SwinIR
+# Datasets (large files)
+Test/
+Train/
+SwinIR/

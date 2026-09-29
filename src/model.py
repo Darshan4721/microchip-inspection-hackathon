@@ -1,4 +1,10 @@
-from SwinIR.models.network_swinir import SwinIR
+try:
+    from SwinIR.models.network_swinir import SwinIR
+except (ModuleNotFoundError, ImportError):
+    try:
+        from src.network_swinir import SwinIR
+    except (ModuleNotFoundError, ImportError):
+        from network_swinir import SwinIR
 
 def create_model():
     model = SwinIR(
