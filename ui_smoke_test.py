@@ -85,7 +85,44 @@ def test_values_match_backend():
     
     print("PASS: UI metrics match backend metrics.\n")
 
+def test_mismatched_upload():
+    print("Testing mismatched uploads (Task 1)...")
+    from streamlit.testing.v1 import AppTest
+    from PIL import Image
+    import os
+    import sys
+    
+    os.makedirs("ui_outputs/edge_cases", exist_ok=True)
+    img1 = Image.new("L", (512, 512), color=128)
+    img1.save("ui_outputs/edge_cases/test_512.png")
+    img2 = Image.new("L", (100, 100), color=128)
+    img2.save("ui_outputs/edge_cases/test_100.png")
+
+    at = AppTest.from_file("app.py", default_timeout=300).run()
+    at.radio[0].set_value("Upload your own").run()
+
+    with open("ui_outputs/edge_cases/test_512.png", "rb") as f:
+        at.file_uploader[0].set_value([("test_512.png", f.read(), "image/png")]).run()
+
+    with open("ui_outputs/edge_cases/test_100.png", "rb") as f2:
+        at.file_uploader[1].set_value([("test_100.png", f2.read(), "image/png")]).run()
+
+    at.button[0].click().run()
+    
+    infos = [i.value for i in at.info]
+    print("INFOS found:", infos)
+    
+    found_in = any("Inputs are resized to 128x128" in i for i in infos)
+    found_gt = any("was resized to 256x256 using Bicubic interpolation" in i for i in infos)
+    
+    if not found_in or not found_gt:
+        print("FAIL: Missing info messages for resized uploads!")
+        sys.exit(1)
+        
+    print("PASS: Mismatched uploads correctly documented in UI.\n")
+
 if __name__ == "__main__":
+    test_mismatched_upload()
     test_stale_results_fix()
     test_values_match_backend()
     print("All smoke tests passed!")

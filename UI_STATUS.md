@@ -317,6 +317,14 @@ Total Wall Time: 7.292603 seconds
 * `git diff origin/main..HEAD` showed strictly additive `A` markers to tracked new features without meddling with the repository's roots.
 * README-UI.md was corrected so timings are solely qualitative and an explicit "Do NOT modify" block was added protecting original files.
 
+
+## Known limitations
+* The model reloads on every click (this adds noticeable seconds to the execution time).
+* All inputs are resized to 128x128 before restoration; outputs are always 256x256.
+* CPU-only build (inference takes place on CPU).
+* Out-of-distribution results are documented as lower than in-distribution results.
+* semicon_test_pattern example has no ground truth.
+
 **Remaining Known Issues:**
 * None.
 

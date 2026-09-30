@@ -21,6 +21,14 @@ This is a Streamlit user interface built on top of the original SwinIR restorati
 - **CPU Runtime**: The restoration logic takes a few seconds per image on a standard CPU (a few seconds). 
 - **Original Backend**: The UI directly calls the existing `demo_single.py` restoration logic without modifying the underlying models, metrics, or validation flow.
 
+
+## Known Limitations
+- **Model Reloads**: The model reloads from disk on every click, adding noticeable seconds.
+- **Fixed Resize**: All inputs are aggressively resized to 128x128 before restoration; the backend always outputs 256x256.
+- **CPU-Only**: This UI environment relies on a CPU-only PyTorch build.
+- **OOD Performance**: Out-of-distribution results are documented to be lower than in-distribution results.
+- **No GT Example**: The semicon_test_pattern example explicitly lacks a ground truth.
+
 ## Included Examples
 The `input_custom/` folder provides the following pre-loaded examples:
 - `degraded_semicon_gaussian.png`, `degraded_semicon_lowres.png`, `degraded_semicon_speckle.png`, `real_semicon_die.png`: These represent out-of-distribution (OOD) degraded semiconductor samples. to demonstrate structural similarity improvements on noisy unseen samples.

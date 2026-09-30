@@ -161,12 +161,17 @@ if "last_result" in st.session_state:
         DISPLAY_SIZE = (512, 512)
     
         # 1. Input
+        orig_in_size = (128, 128)
         try:
             in_img = load_for_display(res["input"])
             orig_in_size = in_img.size
             in_img_disp = in_img.resize(DISPLAY_SIZE, Image.NEAREST)
             with col1:
-                st.image(in_img_disp, caption=f"Degraded Input ({orig_in_size[0]}x{orig_in_size[1]}) - shown enlarged", width="stretch")
+                if orig_in_size != (128, 128):
+                    caption_text = f"original upload ({orig_in_size[0]}x{orig_in_size[1]}), resized to 128x128 for the model"
+                else:
+                    caption_text = f"Degraded Input ({orig_in_size[0]}x{orig_in_size[1]}) - shown enlarged"
+                st.image(in_img_disp, caption=caption_text, width="stretch")
         except Exception as e:
             with col1:
                 st.error(f"Failed to load input: {e}")
@@ -189,11 +194,21 @@ if "last_result" in st.session_state:
                     gt_img = load_for_display(res["matched_gt_path"])
                     orig_gt_size = gt_img.size
                     gt_img_disp = gt_img.resize(DISPLAY_SIZE, Image.NEAREST)
-                    st.image(gt_img_disp, caption=f"Ground Truth ({orig_gt_size[0]}x{orig_gt_size[1]}) - shown enlarged", width="stretch")
+                    
+                    if orig_gt_size != (256, 256):
+                        gt_caption = f"original GT ({orig_gt_size[0]}x{orig_gt_size[1]}), resized to 256x256 for metrics"
+                        st.info(f"Notice: The uploaded GT ({orig_gt_size[0]}x{orig_gt_size[1]}) was resized to 256x256 using Bicubic interpolation by the backend to match the model output size for metric calculation.")
+                    else:
+                        gt_caption = f"Ground Truth ({orig_gt_size[0]}x{orig_gt_size[1]}) - shown enlarged"
+                        
+                    st.image(gt_img_disp, caption=gt_caption, width="stretch")
                 except Exception as e:
                     st.error(f"Failed to load ground truth: {e}")
             else:
                 st.info("No ground truth available for this sample")
+                
+        if orig_in_size != (128, 128):
+            st.info(f"Inputs are resized to 128x128 before restoration; the output is 256x256. Real input size read: {orig_in_size[0]}x{orig_in_size[1]}.")
             
         # Metrics
         st.markdown("### Metrics")
