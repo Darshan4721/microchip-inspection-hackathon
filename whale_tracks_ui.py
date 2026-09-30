@@ -206,24 +206,30 @@ class WhaleTracksApp:
 
         # Defocus blur slider
         blur_box = tk.Frame(s2, bg=CARD_BG)
-        blur_box.pack(side="left", padx=6)
-        self.blur_label = tk.Label(blur_box, text="Blur σ: 0.8", font=("Segoe UI", 8, "bold"), fg=TEXT_PRIMARY, bg=CARD_BG)
+        blur_box.pack(side="left", padx=5)
+        self.blur_label = tk.Label(blur_box, text="Blur σ: 0.7", font=("Segoe UI", 8, "bold"), fg=TEXT_PRIMARY, bg=CARD_BG)
         self.blur_label.pack(anchor="w")
-        self.blur_slider = tk.Scale(blur_box, from_=0.0, to=2.0, resolution=0.1, orient="horizontal", length=90, showvalue=0, command=self.on_slider_change, bg=CARD_BG, fg=TEXT_PRIMARY, highlightthickness=0, troughcolor=BG_MAIN)
-        self.blur_slider.set(0.8)
+        self.blur_slider = tk.Scale(blur_box, from_=0.0, to=1.2, resolution=0.1, orient="horizontal", length=85, showvalue=0, command=self.on_slider_change, bg=CARD_BG, fg=TEXT_PRIMARY, highlightthickness=0, troughcolor=BG_MAIN)
+        self.blur_slider.set(0.7)
         self.blur_slider.pack()
 
         # Noise grain slider
         noise_box = tk.Frame(s2, bg=CARD_BG)
-        noise_box.pack(side="left", padx=6)
-        self.noise_label = tk.Label(noise_box, text="Noise: 5%", font=("Segoe UI", 8, "bold"), fg=TEXT_PRIMARY, bg=CARD_BG)
+        noise_box.pack(side="left", padx=5)
+        self.noise_label = tk.Label(noise_box, text="Noise: 4%", font=("Segoe UI", 8, "bold"), fg=TEXT_PRIMARY, bg=CARD_BG)
         self.noise_label.pack(anchor="w")
-        self.noise_slider = tk.Scale(noise_box, from_=0.0, to=0.20, resolution=0.01, orient="horizontal", length=90, showvalue=0, command=self.on_slider_change, bg=CARD_BG, fg=TEXT_PRIMARY, highlightthickness=0, troughcolor=BG_MAIN)
-        self.noise_slider.set(0.05)
+        self.noise_slider = tk.Scale(noise_box, from_=0.0, to=0.08, resolution=0.01, orient="horizontal", length=85, showvalue=0, command=self.on_slider_change, bg=CARD_BG, fg=TEXT_PRIMARY, highlightthickness=0, troughcolor=BG_MAIN)
+        self.noise_slider.set(0.04)
         self.noise_slider.pack()
 
-        btn_apply_deg = tk.Button(s2, text="Apply Degradation", command=self.apply_slider_degradation, bg=BUTTON_BG, fg=ACCENT_BLUE, font=("Segoe UI", 9, "bold"), relief="flat", padx=8, pady=3, cursor="hand2")
-        btn_apply_deg.pack(side="left", padx=6)
+        btn_box = tk.Frame(s2, bg=CARD_BG)
+        btn_box.pack(side="left", padx=4)
+
+        btn_apply_deg = tk.Button(btn_box, text="Apply Degradation", command=self.apply_slider_degradation, bg=BUTTON_BG, fg=ACCENT_BLUE, font=("Segoe UI", 8, "bold"), relief="flat", padx=6, pady=2, cursor="hand2")
+        btn_apply_deg.pack(fill="x", pady=1)
+
+        btn_preset = tk.Button(btn_box, text="✨ Realistic Preset", command=self.set_realistic_preset, bg=BUTTON_BG, fg=ACCENT_GREEN, font=("Segoe UI", 8), relief="flat", padx=6, pady=1, cursor="hand2")
+        btn_preset.pack(fill="x", pady=1)
 
         # Section 3: Interactive Defect Eraser Tool
         s3 = tk.LabelFrame(ctrl_frame, text=" 3. Interactive Eraser Tool ", font=("Segoe UI", 9, "bold"), fg=TEXT_SECONDARY, bg=CARD_BG, bd=1, relief="solid", padx=10, pady=4)
@@ -259,6 +265,12 @@ class WhaleTracksApp:
 
     def set_brush_size(self, size):
         self.brush_size = size
+
+    def set_realistic_preset(self):
+        self.blur_slider.set(0.7)
+        self.noise_slider.set(0.04)
+        self.on_slider_change(None)
+        self.apply_slider_degradation()
 
     def on_slider_change(self, _):
         b_val = self.blur_slider.get()
@@ -514,6 +526,9 @@ class WhaleTracksApp:
         else:
             deg = blurred
 
+        # Store clean 128x128 degraded array directly
+        self.lr_degraded_arr = deg.astype(np.float32)
+
         # Up-render to 256x256 canvas for crisp interactive drawing
         deg_256 = cv2.resize(deg, (256, 256), interpolation=cv2.INTER_NEAREST)
         self.damaged_img = Image.fromarray((deg_256 * 255.0).astype(np.uint8), mode="L")
@@ -552,9 +567,13 @@ class WhaleTracksApp:
             start_t = time.perf_counter()
 
             # Prepare input tensor:
-            # 1. Resize current damaged canvas (256x256) to standard model input (128x128)
-            dam_arr = np.array(self.damaged_img).astype(np.float32) / 255.0
-            lr_input = cv2.resize(dam_arr, (128, 128), interpolation=cv2.INTER_AREA)
+            # If no manual edits, use the pristine 128x128 degraded array directly (no double-downsampling distortion!)
+            if not self.has_manual_edits and hasattr(self, "lr_degraded_arr") and self.lr_degraded_arr is not None:
+                lr_input = self.lr_degraded_arr
+            else:
+                # When manual defect drawing occurred, downsample the edited 256x256 canvas
+                dam_arr = np.array(self.damaged_img).astype(np.float32) / 255.0
+                lr_input = cv2.resize(dam_arr, (128, 128), interpolation=cv2.INTER_AREA)
 
             inp_t = torch.from_numpy(lr_input).unsqueeze(0).unsqueeze(0).to(DEVICE)
 
