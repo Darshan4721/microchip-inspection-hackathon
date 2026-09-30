@@ -53,6 +53,12 @@ class WhaleTracksApp:
         self.root.minsize(1120, 680)
         self.root.configure(bg=BG_MAIN)
 
+        # Bring window to foreground
+        self.root.lift()
+        self.root.attributes("-topmost", True)
+        self.root.after(800, lambda: self.root.attributes("-topmost", False))
+        self.root.focus_force()
+
         # Application State
         self.clean_gt_img = None       # PIL Image (256x256)
         self.clean_gt_arr = None       # float32 [0, 1] (256x256)
