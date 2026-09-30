@@ -333,3 +333,41 @@ Total Wall Time: 7.292603 seconds
 
 **READY FOR HANDOFF:** yes
 Reasoning: All strict file interaction rules were followed, the UI properly invalidates stale states safely, and the full end-to-end functionality executes effectively.
+
+## Phase 3b Report
+
+**1. Upload Resize Behavior:**
+* Validated that demo_single.py forces all incoming arbitrary inputs to 128x128. Specifically:
+  `python
+  img = Image.open(input_path).convert("L")
+  # Ensure 128x128 degraded resolution if not already
+  if img.size != (128, 128):
+      img = img.resize((128, 128), Image.BICUBIC)
+  `
+* For ground truths, it aggressively resizes them to match the output size (256x256):
+  `python
+  if img.size != (target_shape[1], target_shape[0]):
+      img = img.resize((target_shape[1], target_shape[0]), Image.BICUBIC)
+  `
+* Updated pp.py to intercept out-of-spec dimensions gracefully. 
+  * If a mismatched input is provided, the degraded input panel now clearly labels it as original upload (WxH), resized to 128x128 for the model and outputs an st.info block verifying the resize metrics.
+  * If a mismatched GT is provided, the ground truth panel labels it original GT (WxH), resized to 256x256 for metrics and outputs an st.info block explaining the backend bicubic interpolation.
+  * Re-added an AppTest specifically uploading 512x512 images to formally assert these notifications load.
+
+**2. Documenting Known Limitations:**
+* Explicitly updated UI_STATUS.md and README-UI.md exposing the backend architecture realities: models reload from disk every run adding seconds, sizes are rigidly locked to 128->256, PyTorch inference evaluates CPU-only natively, and the test pattern is GT-less intentionally.
+
+**3. Untracked Outputs Directory:**
+* Investigated untracked_results/. The wrapper natively deposits files there *only if* specified via a CLI argument like --output untracked_results/....
+* The demo_single.py codebase defaults to writing to 
+esults/ on its own:
+  `python
+  out_dir = ROOT / "results"
+  out_dir.mkdir(parents=True, exist_ok=True)
+  `
+* The UI (pp.py), however, does NOT ever write to untracked_results/ or 
+esults/. Instead, it forcefully routes all generations safely to ui_outputs/results using the --output functionality of 
+un_restoration. untracked_results/ was an artifact of Phase 2's direct terminal testing.
+
+**4. Visual Evidence:**
+* *Note: No real browser tool was available to capture localized PNG screenshots, therefore visual evidence collection was skipped as per instructions.*
