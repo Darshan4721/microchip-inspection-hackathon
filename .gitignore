@@ -15,3 +15,12 @@ Train/
 SwinIR/
 *.zip
 checkpoints/
+test_results/
+results/
+test_batch_20/
+varied_imaging_test/
+input_custom/
+others/
+*.npy
+veltraxx_ui_backup.py
+test_ui_verification.py

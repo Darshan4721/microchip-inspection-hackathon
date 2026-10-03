@@ -1,5 +1,5 @@
 """
-Veltraxx — Semiconductor Image Restoration
+Whale Tracks — Semiconductor Image Restoration
 Presentation Desktop Application
 """
 
@@ -48,9 +48,9 @@ SAMPLES_DIR = ROOT / "final_test_50" / "clean"
 class VeltraxxApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Veltraxx — Semiconductor Image Restoration")
-        self.root.geometry("1260x780")
-        self.root.minsize(1120, 680)
+        self.root.title("VELTRAXX — Semiconductor Image Restoration Platform")
+        self.root.geometry("1320x840")
+        self.root.minsize(1180, 720)
         self.root.configure(bg=BG_MAIN)
 
         # Bring window to foreground
@@ -58,6 +58,10 @@ class VeltraxxApp:
         self.root.attributes("-topmost", True)
         self.root.after(800, lambda: self.root.attributes("-topmost", False))
         self.root.focus_force()
+
+        import queue
+        self.ui_queue = queue.Queue()
+        self.poll_queue()
 
         # Application State
         self.clean_gt_img = None       # PIL Image (256x256)
@@ -91,9 +95,28 @@ class VeltraxxApp:
         self.build_quad_panels()
         self.build_status_bar()
 
+        # Bind Global Keyboard Shortcuts
+        self.root.bind("<space>", lambda e: self.on_restore_clicked())
+        self.root.bind("<Left>", lambda e: self.cycle_sample(-1))
+        self.root.bind("<Right>", lambda e: self.cycle_sample(1))
+        self.root.bind("<r>", lambda e: self.reset_to_degraded())
+        self.root.bind("<R>", lambda e: self.reset_to_degraded())
+
         # Load initial sample
         if self.sample_files:
             self.load_sample_by_path(self.sample_files[0])
+
+    def poll_queue(self):
+        try:
+            while True:
+                fn, args = self.ui_queue.get_nowait()
+                fn(*args)
+        except Exception:
+            pass
+        self.root.after(25, self.poll_queue)
+
+    def dispatch_to_ui(self, fn, *args):
+        self.ui_queue.put((fn, args))
 
     # ---------------------------------------------------------
     # Model Loading
@@ -107,10 +130,10 @@ class VeltraxxApp:
                 m.load_state_dict(ckpt["model"] if isinstance(ckpt, dict) and "model" in ckpt else ckpt)
                 m.eval()
                 self.model = m
-                self.root.after(0, self.on_model_ready)
+                self.dispatch_to_ui(self.on_model_ready)
             except Exception as e:
                 print(f"Error loading model: {e}")
-                self.root.after(0, lambda: self.status_pill.configure(text="⚠️ Model Load Failed", fg=ACCENT_RED))
+                self.dispatch_to_ui(lambda: self.status_pill.configure(text="⚠️ Model Load Failed", fg=ACCENT_RED))
 
         t = threading.Thread(target=_load, daemon=True)
         t.start()
@@ -118,7 +141,7 @@ class VeltraxxApp:
     def on_model_ready(self):
         ckpt_name = "finetuned_v2.pth (Reflectance-Tuned)" if FLAGSHIP_CKPT.exists() else "best.pth"
         self.status_pill.configure(text=f"● Ready ({DEVICE.upper()})", fg=ACCENT_GREEN)
-        self.model_info_lbl.configure(text=f"Engine: SwinIR-2x | Model: {ckpt_name}")
+        self.model_info_lbl.configure(text=f"Engine: VELTRAXX SwinIR-2x | Model: {ckpt_name}")
 
     # ---------------------------------------------------------
     # Header Bar
@@ -135,8 +158,7 @@ class VeltraxxApp:
             text="VELTRAXX",
             font=("Segoe UI", 15, "bold"),
             fg=ACCENT_BLUE,
-            bg=HEADER_BG,
-            lettercase="uppercase" if hasattr(tk, "lettercase") else None
+            bg=HEADER_BG
         )
         title_label.pack(side="left")
 
@@ -158,7 +180,7 @@ class VeltraxxApp:
 
         self.model_info_lbl = tk.Label(
             right_telemetry,
-            text="Engine: Loading SwinIR weights...",
+            text="Engine: Loading Whale Tracks SwinIR weights...",
             font=("Segoe UI", 9),
             fg=TEXT_MUTED,
             bg=HEADER_BG,
@@ -183,43 +205,66 @@ class VeltraxxApp:
     # Controls Toolbar (Bento Grid Style)
     # ---------------------------------------------------------
     def build_controls(self):
-        ctrl_frame = tk.Frame(self.root, bg=BG_MAIN, pady=8, padx=20)
+        ctrl_frame = tk.Frame(self.root, bg=BG_MAIN, pady=6, padx=16)
         ctrl_frame.pack(fill="x", side="top")
 
-        # Section 1: Image Picker
-        s1 = tk.LabelFrame(ctrl_frame, text=" 1. Ground Truth Source ", font=("Segoe UI", 9, "bold"), fg=TEXT_SECONDARY, bg=CARD_BG, bd=1, relief="solid", padx=10, pady=6)
-        s1.pack(side="left", fill="y", padx=5)
+        # Section 1: Image Picker + Showcase Quick-Picks
+        s1 = tk.LabelFrame(ctrl_frame, text=" 1. Ground Truth Source ", font=("Segoe UI", 9, "bold"), fg=TEXT_SECONDARY, bg=CARD_BG, bd=1, relief="solid", padx=8, pady=4)
+        s1.pack(side="left", fill="y", padx=4)
 
         sample_names = [f.name for f in self.sample_files] if self.sample_files else ["No samples found"]
-        self.sample_combo = ttk.Combobox(s1, values=sample_names, state="readonly", width=16, font=("Segoe UI", 9))
+        self.sample_combo = ttk.Combobox(s1, values=sample_names, state="readonly", width=14, font=("Segoe UI", 9))
         if sample_names:
             self.sample_combo.current(0)
         self.sample_combo.bind("<<ComboboxSelected>>", self.on_sample_combo)
-        self.sample_combo.pack(side="left", padx=4)
+        self.sample_combo.pack(side="left", padx=3)
 
-        btn_browse = tk.Button(s1, text="📁 Browse", command=self.on_browse_file, bg=BUTTON_BG, fg=TEXT_PRIMARY, font=("Segoe UI", 9), relief="flat", padx=8, pady=2, cursor="hand2")
-        btn_browse.pack(side="left", padx=4)
+        btn_browse = tk.Button(s1, text="📁 Browse", command=self.on_browse_file, bg=BUTTON_BG, fg=TEXT_PRIMARY, font=("Segoe UI", 8), relief="flat", padx=6, pady=2, cursor="hand2")
+        btn_browse.pack(side="left", padx=3)
 
-        # Section 2: Optical Degradation Sliders
-        s2 = tk.LabelFrame(ctrl_frame, text=" 2. Optical Degradation Sliders ", font=("Segoe UI", 9, "bold"), fg=TEXT_SECONDARY, bg=CARD_BG, bd=1, relief="solid", padx=10, pady=4)
-        s2.pack(side="left", fill="y", padx=5)
+        # Quick-Pick Buttons for Flagship Samples (sample_06, sample_35, sample_23)
+        qp_frame = tk.Frame(s1, bg=CARD_BG)
+        qp_frame.pack(side="left", padx=(8, 2))
 
-        # Defocus blur slider
+        tk.Label(qp_frame, text="Quick-Pick:", font=("Segoe UI", 8, "bold"), fg=ACCENT_AMBER, bg=CARD_BG).pack(side="left", padx=(0, 4))
+
+        showcase_samples = [("sample_06", "S-06 (+4.4dB)"), ("sample_35", "S-35 (+4.0dB)"), ("sample_23", "S-23 (+5.0dB)")]
+        for s_id, s_lbl in showcase_samples:
+            btn_s = tk.Button(
+                qp_frame,
+                text=s_lbl,
+                command=lambda name=s_id: self.select_sample_by_name(name),
+                bg=BUTTON_BG,
+                fg=TEXT_PRIMARY,
+                font=("Segoe UI", 8, "bold"),
+                relief="flat",
+                padx=6,
+                pady=1,
+                cursor="hand2",
+                activebackground=ACCENT_BLUE
+            )
+            btn_s.pack(side="left", padx=2)
+
+        # Section 2: Optical Degradation Sliders (Defaults: Blur 1.0, Noise 6%)
+        s2 = tk.LabelFrame(ctrl_frame, text=" 2. Optical Degradation Sliders ", font=("Segoe UI", 9, "bold"), fg=TEXT_SECONDARY, bg=CARD_BG, bd=1, relief="solid", padx=8, pady=4)
+        s2.pack(side="left", fill="y", padx=4)
+
+        # Defocus blur slider (default 1.0)
         blur_box = tk.Frame(s2, bg=CARD_BG)
-        blur_box.pack(side="left", padx=5)
-        self.blur_label = tk.Label(blur_box, text="Blur σ: 0.7", font=("Segoe UI", 8, "bold"), fg=TEXT_PRIMARY, bg=CARD_BG)
+        blur_box.pack(side="left", padx=4)
+        self.blur_label = tk.Label(blur_box, text="Blur σ: 1.0", font=("Segoe UI", 8, "bold"), fg=TEXT_PRIMARY, bg=CARD_BG)
         self.blur_label.pack(anchor="w")
-        self.blur_slider = tk.Scale(blur_box, from_=0.0, to=1.2, resolution=0.1, orient="horizontal", length=85, showvalue=0, command=self.on_slider_change, bg=CARD_BG, fg=TEXT_PRIMARY, highlightthickness=0, troughcolor=BG_MAIN)
-        self.blur_slider.set(0.7)
+        self.blur_slider = tk.Scale(blur_box, from_=0.0, to=1.5, resolution=0.1, orient="horizontal", length=80, showvalue=0, command=self.on_slider_change, bg=CARD_BG, fg=TEXT_PRIMARY, highlightthickness=0, troughcolor=BG_MAIN)
+        self.blur_slider.set(1.0)
         self.blur_slider.pack()
 
-        # Noise grain slider
+        # Noise grain slider (default 0.06 = 6%)
         noise_box = tk.Frame(s2, bg=CARD_BG)
-        noise_box.pack(side="left", padx=5)
-        self.noise_label = tk.Label(noise_box, text="Noise: 4%", font=("Segoe UI", 8, "bold"), fg=TEXT_PRIMARY, bg=CARD_BG)
+        noise_box.pack(side="left", padx=4)
+        self.noise_label = tk.Label(noise_box, text="Noise: 6%", font=("Segoe UI", 8, "bold"), fg=TEXT_PRIMARY, bg=CARD_BG)
         self.noise_label.pack(anchor="w")
-        self.noise_slider = tk.Scale(noise_box, from_=0.0, to=0.08, resolution=0.01, orient="horizontal", length=85, showvalue=0, command=self.on_slider_change, bg=CARD_BG, fg=TEXT_PRIMARY, highlightthickness=0, troughcolor=BG_MAIN)
-        self.noise_slider.set(0.04)
+        self.noise_slider = tk.Scale(noise_box, from_=0.0, to=0.12, resolution=0.01, orient="horizontal", length=80, showvalue=0, command=self.on_slider_change, bg=CARD_BG, fg=TEXT_PRIMARY, highlightthickness=0, troughcolor=BG_MAIN)
+        self.noise_slider.set(0.06)
         self.noise_slider.pack()
 
         btn_box = tk.Frame(s2, bg=CARD_BG)
@@ -228,12 +273,12 @@ class VeltraxxApp:
         btn_apply_deg = tk.Button(btn_box, text="Apply Degradation", command=self.apply_slider_degradation, bg=BUTTON_BG, fg=ACCENT_BLUE, font=("Segoe UI", 8, "bold"), relief="flat", padx=6, pady=2, cursor="hand2")
         btn_apply_deg.pack(fill="x", pady=1)
 
-        btn_preset = tk.Button(btn_box, text="✨ Realistic Preset", command=self.set_realistic_preset, bg=BUTTON_BG, fg=ACCENT_GREEN, font=("Segoe UI", 8), relief="flat", padx=6, pady=1, cursor="hand2")
+        btn_preset = tk.Button(btn_box, text="Realistic Preset (1.0/6%)", command=self.set_realistic_preset, bg=BUTTON_BG, fg=ACCENT_GREEN, font=("Segoe UI", 8), relief="flat", padx=6, pady=1, cursor="hand2")
         btn_preset.pack(fill="x", pady=1)
 
         # Section 3: Interactive Defect Eraser Tool
-        s3 = tk.LabelFrame(ctrl_frame, text=" 3. Interactive Eraser Tool ", font=("Segoe UI", 9, "bold"), fg=TEXT_SECONDARY, bg=CARD_BG, bd=1, relief="solid", padx=10, pady=4)
-        s3.pack(side="left", fill="y", padx=5)
+        s3 = tk.LabelFrame(ctrl_frame, text=" 3. Interactive Eraser Tool ", font=("Segoe UI", 9, "bold"), fg=TEXT_SECONDARY, bg=CARD_BG, bd=1, relief="solid", padx=8, pady=4)
+        s3.pack(side="left", fill="y", padx=4)
 
         tk.Label(s3, text="Brush:", font=("Segoe UI", 8), fg=TEXT_MUTED, bg=CARD_BG).pack(side="left")
         self.brush_var = tk.StringVar(value="Med")
@@ -241,34 +286,51 @@ class VeltraxxApp:
             b_btn = tk.Radiobutton(s3, text=b_name, value=b_name, variable=self.brush_var, command=lambda v=b_val: self.set_brush_size(v), bg=CARD_BG, fg=TEXT_PRIMARY, selectcolor=BUTTON_BG, activebackground=CARD_BG, font=("Segoe UI", 8))
             b_btn.pack(side="left")
 
-        btn_reset_edits = tk.Button(s3, text="↺ Reset Edits", command=self.reset_to_degraded, bg=BUTTON_BG, fg=TEXT_PRIMARY, font=("Segoe UI", 9), relief="flat", padx=6, pady=2, cursor="hand2")
-        btn_reset_edits.pack(side="left", padx=8)
+        btn_reset_edits = tk.Button(s3, text="↺ Reset Edits [R]", command=self.reset_to_degraded, bg=BUTTON_BG, fg=TEXT_PRIMARY, font=("Segoe UI", 8), relief="flat", padx=6, pady=2, cursor="hand2")
+        btn_reset_edits.pack(side="left", padx=6)
 
         # Section 4: Primary Restore CTA
         s4 = tk.Frame(ctrl_frame, bg=BG_MAIN)
-        s4.pack(side="right", fill="y", padx=5)
+        s4.pack(side="right", fill="y", padx=4)
 
         self.btn_restore = tk.Button(
             s4,
-            text="⚡ RESTORE IMAGE",
+            text="RESTORE IMAGE [SPACE]",
             command=self.on_restore_clicked,
             bg=ACTIVE_CTA,
             fg="#FFFFFF",
             font=("Segoe UI", 11, "bold"),
             relief="flat",
-            padx=18,
-            pady=10,
+            padx=16,
+            pady=8,
             cursor="hand2",
             activebackground=ACCENT_BLUE
         )
         self.btn_restore.pack(fill="both", expand=True)
 
+    def select_sample_by_name(self, target_stem):
+        for idx, p in enumerate(self.sample_files):
+            if target_stem in p.stem:
+                self.sample_combo.current(idx)
+                self.load_sample_by_path(p)
+                return
+
+    def cycle_sample(self, direction):
+        if not self.sample_files:
+            return
+        curr_idx = self.sample_combo.current()
+        if curr_idx < 0:
+            curr_idx = 0
+        new_idx = (curr_idx + direction) % len(self.sample_files)
+        self.sample_combo.current(new_idx)
+        self.load_sample_by_path(self.sample_files[new_idx])
+
     def set_brush_size(self, size):
         self.brush_size = size
 
     def set_realistic_preset(self):
-        self.blur_slider.set(0.7)
-        self.noise_slider.set(0.04)
+        self.blur_slider.set(1.0)
+        self.noise_slider.set(0.06)
         self.on_slider_change(None)
         self.apply_slider_degradation()
 
@@ -282,7 +344,7 @@ class VeltraxxApp:
     # Main Quad Display (4 Panels Side-by-Side)
     # ---------------------------------------------------------
     def build_quad_panels(self):
-        quad_frame = tk.Frame(self.root, bg=BG_MAIN, padx=16, pady=4)
+        quad_frame = tk.Frame(self.root, bg=BG_MAIN, padx=14, pady=4)
         quad_frame.pack(fill="both", expand=True)
 
         for col in range(4):
@@ -301,17 +363,20 @@ class VeltraxxApp:
 
         # Panel 3: Restored Output
         self.panel3, self.canvas_restored, self.sub3 = self.create_display_card(
-            quad_frame, col=2, title="3. SwinIR 2x Restored", subtitle="High-Fidelity Reconstructed Layout Pattern", badge_text="🌟 AI Restored Output", badge_color=ACCENT_GREEN
+            quad_frame, col=2, title="3. SwinIR 2x Restored", subtitle="High-Fidelity Reconstructed Layout Pattern", badge_text="Restored Output", badge_color=ACCENT_GREEN
         )
 
-        # Panel 4: Difference / Heatmap
+        # Panel 4: Difference / Error Map
         self.panel4, self.canvas_heatmap, self.sub4 = self.create_display_card(
-            quad_frame, col=3, title="4. Inspection Delta Heatmap", subtitle="Spatial Defect & Recovery Residual Field", badge_text="Error Heatmap", badge_color="#F43F5E"
+            quad_frame, col=3,
+            title="4. Restoration Error Map",
+            subtitle="Restoration Error Map: Dark = close to ground truth, Bright = remaining difference",
+            badge_text="Error Map", badge_color="#F43F5E"
         )
 
     def create_display_card(self, parent, col, title, subtitle, badge_text, badge_color):
         card = tk.Frame(parent, bg=CARD_BG, bd=1, relief="solid", padx=10, pady=8)
-        card.grid(row=0, column=col, padx=6, pady=4, sticky="nsew")
+        card.grid(row=0, column=col, padx=5, pady=4, sticky="nsew")
 
         # Header inside card
         th_frame = tk.Frame(card, bg=CARD_BG)
@@ -323,7 +388,7 @@ class VeltraxxApp:
         badge = tk.Label(th_frame, text=f" {badge_text} ", font=("Segoe UI", 8, "bold"), fg=badge_color, bg="#1A2133", bd=1, relief="solid")
         badge.pack(side="right")
 
-        sub_lbl = tk.Label(card, text=subtitle, font=("Segoe UI", 8), fg=TEXT_MUTED, bg=CARD_BG)
+        sub_lbl = tk.Label(card, text=subtitle, font=("Segoe UI", 8), fg=TEXT_MUTED, bg=CARD_BG, wraplength=270, justify="left")
         sub_lbl.pack(anchor="w", pady=(0, 6))
 
         # Canvas container (256x256)
@@ -341,7 +406,7 @@ class VeltraxxApp:
 
     def create_interactive_card(self, parent, col, title, subtitle, badge_text, badge_color):
         card = tk.Frame(parent, bg=CARD_BG, bd=1, relief="solid", padx=10, pady=8)
-        card.grid(row=0, column=col, padx=6, pady=4, sticky="nsew")
+        card.grid(row=0, column=col, padx=5, pady=4, sticky="nsew")
 
         th_frame = tk.Frame(card, bg=CARD_BG)
         th_frame.pack(fill="x", pady=2)
@@ -352,7 +417,7 @@ class VeltraxxApp:
         badge = tk.Label(th_frame, text=f" {badge_text} ", font=("Segoe UI", 8, "bold"), fg=badge_color, bg="#282218", bd=1, relief="solid")
         badge.pack(side="right")
 
-        sub_lbl = tk.Label(card, text=subtitle, font=("Segoe UI", 8, "bold"), fg=ACCENT_AMBER, bg=CARD_BG)
+        sub_lbl = tk.Label(card, text=subtitle, font=("Segoe UI", 8, "bold"), fg=ACCENT_AMBER, bg=CARD_BG, wraplength=270, justify="left")
         sub_lbl.pack(anchor="w", pady=(0, 6))
 
         cv_frame = tk.Frame(card, bg="#000000", bd=1, relief="solid")
@@ -372,26 +437,55 @@ class VeltraxxApp:
         return card, canvas, stat_lbl
 
     # ---------------------------------------------------------
-    # Bottom Telemetry & Status Bar
+    # Bottom Telemetry & Status Bar (20pt+ High-Visibility Metrology Cards)
     # ---------------------------------------------------------
     def build_status_bar(self):
-        bar = tk.Frame(self.root, bg=HEADER_BG, pady=8, padx=20)
+        bar = tk.Frame(self.root, bg=HEADER_BG, pady=10, padx=20)
         bar.pack(fill="x", side="bottom")
 
-        self.telemetry_psnr = tk.Label(bar, text="PSNR: — dB", font=("Segoe UI", 10, "bold"), fg=ACCENT_BLUE, bg=HEADER_BG)
-        self.telemetry_psnr.pack(side="left", padx=15)
+        # Telemetry container with 3 large Bento Stat Cards
+        stats_frame = tk.Frame(bar, bg=HEADER_BG)
+        stats_frame.pack(side="left", fill="y")
 
-        self.telemetry_ssim = tk.Label(bar, text="SSIM: —", font=("Segoe UI", 10, "bold"), fg=ACCENT_GREEN, bg=HEADER_BG)
-        self.telemetry_ssim.pack(side="left", padx=15)
+        # PSNR Card
+        psnr_card = tk.Frame(stats_frame, bg=CARD_BG, bd=1, relief="solid", padx=16, pady=4)
+        psnr_card.pack(side="left", padx=8)
+        tk.Label(psnr_card, text="PSNR RECONSTRUCTION", font=("Segoe UI", 8, "bold"), fg=TEXT_MUTED, bg=CARD_BG).pack(anchor="w")
+        self.telemetry_psnr = tk.Label(psnr_card, text="— dB", font=("Consolas", 22, "bold"), fg=ACCENT_BLUE, bg=CARD_BG)
+        self.telemetry_psnr.pack(anchor="w")
 
-        self.telemetry_time = tk.Label(bar, text="Inference Latency: — ms", font=("Segoe UI", 10), fg=TEXT_SECONDARY, bg=HEADER_BG)
-        self.telemetry_time.pack(side="left", padx=15)
+        # SSIM Card
+        ssim_card = tk.Frame(stats_frame, bg=CARD_BG, bd=1, relief="solid", padx=16, pady=4)
+        ssim_card.pack(side="left", padx=8)
+        tk.Label(ssim_card, text="STRUCTURAL SSIM", font=("Segoe UI", 8, "bold"), fg=TEXT_MUTED, bg=CARD_BG).pack(anchor="w")
+        self.telemetry_ssim = tk.Label(ssim_card, text="—", font=("Consolas", 22, "bold"), fg=ACCENT_GREEN, bg=CARD_BG)
+        self.telemetry_ssim.pack(anchor="w")
 
-        self.telemetry_mode = tk.Label(bar, text="Mode: Reference-Verified Optical Test", font=("Segoe UI", 9, "italic"), fg=TEXT_MUTED, bg=HEADER_BG)
-        self.telemetry_mode.pack(side="right", padx=10)
+        # Latency Card
+        time_card = tk.Frame(stats_frame, bg=CARD_BG, bd=1, relief="solid", padx=16, pady=4)
+        time_card.pack(side="left", padx=8)
+        tk.Label(time_card, text="INFERENCE LATENCY", font=("Segoe UI", 8, "bold"), fg=TEXT_MUTED, bg=CARD_BG).pack(anchor="w")
+        self.telemetry_time = tk.Label(time_card, text="— ms", font=("Consolas", 22, "bold"), fg=TEXT_PRIMARY, bg=CARD_BG)
+        self.telemetry_time.pack(anchor="w")
+
+        # Right side: Shortcuts legend & operational mode
+        right_box = tk.Frame(bar, bg=HEADER_BG)
+        right_box.pack(side="right", padx=10)
+
+        self.telemetry_mode = tk.Label(right_box, text="Mode: Reference-Verified Optical Test", font=("Segoe UI", 9, "bold"), fg=TEXT_SECONDARY, bg=HEADER_BG)
+        self.telemetry_mode.pack(anchor="e")
+
+        shortcuts_lbl = tk.Label(
+            right_box,
+            text="Shortcuts: [Space] Restore  |  [← / →] Cycle Samples  |  [R] Reset",
+            font=("Segoe UI", 9, "bold"),
+            fg=ACCENT_AMBER,
+            bg=HEADER_BG
+        )
+        shortcuts_lbl.pack(anchor="e", pady=(4, 0))
 
     # ---------------------------------------------------------
-    # Interactive Drawing / Eraser Handlers
+    # Interactive Drawing / Eraser Handlers (Zero-Leak Implementation)
     # ---------------------------------------------------------
     def on_canvas_press(self, event):
         self.last_draw_x = event.x
@@ -420,10 +514,11 @@ class VeltraxxApp:
         draw = ImageDraw.Draw(self.damaged_img)
         draw.ellipse([x - r, y - r, x + r, y + r], fill=self.erase_color_val)
 
-        # Refresh canvas
+        # Refresh canvas with ZERO memory leak (delete previous canvas item before adding new)
         self.tk_damaged = ImageTk.PhotoImage(self.damaged_img)
+        self.canvas_damaged.delete("all")
         self.canvas_damaged.create_image(0, 0, anchor="nw", image=self.tk_damaged)
-        self.sub2.configure(text=f"Manual Defect Added | Click Restore to Test", fg=ACCENT_AMBER)
+        self.sub2.configure(text="Manual Defect Added | Press Space to Restore", fg=ACCENT_AMBER)
 
     def erase_line(self, x0, y0, x1, y1):
         if self.damaged_img is None:
@@ -435,9 +530,11 @@ class VeltraxxApp:
         draw.line([x0, y0, x1, y1], fill=self.erase_color_val, width=self.brush_size)
         draw.ellipse([x1 - r, y1 - r, x1 + r, y1 + r], fill=self.erase_color_val)
 
+        # Refresh canvas with ZERO memory leak (delete previous canvas item before adding new)
         self.tk_damaged = ImageTk.PhotoImage(self.damaged_img)
+        self.canvas_damaged.delete("all")
         self.canvas_damaged.create_image(0, 0, anchor="nw", image=self.tk_damaged)
-        self.sub2.configure(text=f"Manual Defect Added | Click Restore to Test", fg=ACCENT_AMBER)
+        self.sub2.configure(text="Manual Defect Added | Press Space to Restore", fg=ACCENT_AMBER)
 
     # ---------------------------------------------------------
     # Image Loading & Degradation
@@ -479,23 +576,24 @@ class VeltraxxApp:
             self.clean_gt_img = img
             self.clean_gt_arr = np.array(img).astype(np.float32) / 255.0
 
-            # Render Clean GT
+            # Render Clean GT (clean canvas display list)
             self.tk_gt = ImageTk.PhotoImage(self.clean_gt_img)
+            self.canvas_gt.delete("all")
             self.canvas_gt.create_image(0, 0, anchor="nw", image=self.tk_gt)
             self.sub1.configure(text=f"File: {path.name} | 256x256", fg=TEXT_SECONDARY)
 
-            # Apply initial moderate degradation
+            # Apply initial moderate degradation (Default: Blur 1.0, Noise 6%)
             self.apply_slider_degradation()
 
             # Clear old restoration outputs
             self.canvas_restored.delete("all")
             self.canvas_heatmap.delete("all")
-            self.sub3.configure(text="Click Restore to execute SwinIR", fg=TEXT_MUTED)
-            self.sub4.configure(text="Difference field generated after restore", fg=TEXT_MUTED)
+            self.sub3.configure(text="Click Restore or press Space to execute", fg=TEXT_MUTED)
+            self.sub4.configure(text="Restoration Error Map: Dark = close to ground truth, Bright = remaining difference", fg=TEXT_MUTED)
 
-            self.telemetry_psnr.configure(text="PSNR: — dB")
-            self.telemetry_ssim.configure(text="SSIM: —")
-            self.telemetry_time.configure(text="Inference Latency: — ms")
+            self.telemetry_psnr.configure(text="— dB")
+            self.telemetry_ssim.configure(text="—")
+            self.telemetry_time.configure(text="— ms")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load image: {e}")
 
@@ -534,7 +632,9 @@ class VeltraxxApp:
         self.damaged_img = Image.fromarray((deg_256 * 255.0).astype(np.uint8), mode="L")
         self.has_manual_edits = False
 
+        # Clean canvas display list to eliminate memory accumulation
         self.tk_damaged = ImageTk.PhotoImage(self.damaged_img)
+        self.canvas_damaged.delete("all")
         self.canvas_damaged.create_image(0, 0, anchor="nw", image=self.tk_damaged)
         self.sub2.configure(text=f"Degraded: Blur σ={sigma:.1f} | Noise={int(noise_level*100)}%", fg=TEXT_SECONDARY)
 
@@ -555,8 +655,8 @@ class VeltraxxApp:
             return
 
         self.is_processing = True
-        self.btn_restore.configure(text="⏳ PROCESSING...", bg="#64748B", state="disabled")
-        self.status_pill.configure(text="⚡ SwinIR Restoring...", fg=ACCENT_AMBER)
+        self.btn_restore.configure(text="PROCESSING...", bg="#64748B", state="disabled")
+        self.status_pill.configure(text="SwinIR Restoring...", fg=ACCENT_AMBER)
 
         # Run inference in worker thread to prevent UI freezing
         t = threading.Thread(target=self.run_inference_worker, daemon=True)
@@ -587,7 +687,7 @@ class VeltraxxApp:
             res_np = out_t.squeeze().clamp(0.0, 1.0).cpu().numpy()
             restored_pil = Image.fromarray((res_np * 255.0).round().astype(np.uint8), mode="L")
 
-            # Calculate Difference Heatmap
+            # Calculate Difference / Error Map
             if self.has_manual_edits:
                 # Highlight inpainting delta against input upscaled
                 base_ref = cv2.resize(dam_arr, (256, 256), interpolation=cv2.INTER_LINEAR)
@@ -610,44 +710,46 @@ class VeltraxxApp:
                 psnr_val = calculate_psnr(out_t, gt_t)
                 ssim_val = calculate_ssim(out_t, gt_t)
 
-            self.root.after(0, self.update_restoration_results, restored_pil, heatmap_pil, inference_ms, psnr_val, ssim_val)
+            self.dispatch_to_ui(self.update_restoration_results, restored_pil, heatmap_pil, inference_ms, psnr_val, ssim_val)
         except Exception as e:
             print(f"Inference error: {e}")
-            self.root.after(0, lambda: messagebox.showerror("Inference Error", str(e)))
-            self.root.after(0, self.reset_processing_state)
+            self.dispatch_to_ui(lambda err=str(e): messagebox.showerror("Inference Error", err))
+            self.dispatch_to_ui(self.reset_processing_state)
 
     def update_restoration_results(self, restored_pil, heatmap_pil, latency_ms, psnr, ssim):
         self.restored_img = restored_pil
         self.heatmap_img = heatmap_pil
 
-        # Render Restored
+        # Render Restored (Clean canvas display list)
         self.tk_restored = ImageTk.PhotoImage(restored_pil)
+        self.canvas_restored.delete("all")
         self.canvas_restored.create_image(0, 0, anchor="nw", image=self.tk_restored)
         self.sub3.configure(text=f"Restored Output (256x256) | Latency: {latency_ms:.1f}ms", fg=ACCENT_GREEN)
 
-        # Render Heatmap
+        # Render Heatmap (Clean canvas display list)
         self.tk_heatmap = ImageTk.PhotoImage(heatmap_pil)
+        self.canvas_heatmap.delete("all")
         self.canvas_heatmap.create_image(0, 0, anchor="nw", image=self.tk_heatmap)
-        self.sub4.configure(text=f"Residual Map: Dark=Matched, Bright=Recovered", fg="#F43F5E")
+        self.sub4.configure(text="Restoration Error Map: Dark = close to ground truth, Bright = remaining difference", fg="#F43F5E")
 
-        # Telemetry Bar Updates
-        self.telemetry_time.configure(text=f"Inference Latency: {latency_ms:.1f} ms")
+        # Telemetry Bar Updates (20pt+ Prominent Font)
+        self.telemetry_time.configure(text=f"{latency_ms:.1f} ms")
 
         if self.has_manual_edits or psnr is None:
-            self.telemetry_psnr.configure(text="PSNR: N/A (Manual Defect)", fg=TEXT_MUTED)
-            self.telemetry_ssim.configure(text="SSIM: N/A (Manual Defect)", fg=TEXT_MUTED)
+            self.telemetry_psnr.configure(text="N/A", fg=TEXT_MUTED)
+            self.telemetry_ssim.configure(text="N/A", fg=TEXT_MUTED)
             self.telemetry_mode.configure(text="Mode: Interactive Hand-Drawn Defect Test (Reference-Free)", fg=ACCENT_AMBER)
         else:
-            self.telemetry_psnr.configure(text=f"PSNR: {psnr:.2f} dB", fg=ACCENT_BLUE)
-            self.telemetry_ssim.configure(text=f"SSIM: {ssim:.4f}", fg=ACCENT_GREEN)
+            self.telemetry_psnr.configure(text=f"{psnr:.2f} dB", fg=ACCENT_BLUE)
+            self.telemetry_ssim.configure(text=f"{ssim:.4f}", fg=ACCENT_GREEN)
             self.telemetry_mode.configure(text="Mode: Standard Optical Physical Verification", fg=TEXT_SECONDARY)
 
         self.reset_processing_state()
-        self.status_pill.configure(text=f"✓ Complete ({latency_ms:.0f}ms)", fg=ACCENT_GREEN)
+        self.status_pill.configure(text=f"Ready ({latency_ms:.0f}ms)", fg=ACCENT_GREEN)
 
     def reset_processing_state(self):
         self.is_processing = False
-        self.btn_restore.configure(text="⚡ RESTORE IMAGE", bg=ACTIVE_CTA, state="normal")
+        self.btn_restore.configure(text="RESTORE IMAGE [SPACE]", bg=ACTIVE_CTA, state="normal")
 
 
 def main():
